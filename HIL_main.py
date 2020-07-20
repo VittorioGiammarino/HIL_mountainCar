@@ -65,6 +65,7 @@ for n in range(N):
     # gamma_tilde = hil.GammaTilde(TrainingSet, labels, beta, alpha, 
     #                               NN_options, NN_actions, NN_termination, zeta, option_space, termination_space)
     
+    
     # MultiThreading Running
     with concurrent.futures.ThreadPoolExecutor() as executor:
         f1 = executor.submit(hil.Alpha, TrainingSet, labels, option_space, termination_space, mu, 
@@ -85,21 +86,21 @@ for n in range(N):
     print('Starting maximization step')
     optimizer = keras.optimizers.Adamax(learning_rate=1e-3)
     epochs = 50 #number of iterations for the maximization step
-        
+            
     gamma_tilde_reshaped = hil.GammaTildeReshape(gamma_tilde, option_space)
     gamma_actions_false, gamma_actions_true = hil.GammaReshapeActions(T, option_space, action_space, gamma, labels_reshaped)
     gamma_reshaped_options = hil.GammaReshapeOptions(T, option_space, gamma)
-    # loss_termination = hil.OptimizeNNtermination(epochs, TrainingSetTermination, NN_termination, gamma_tilde_reshaped, T, optimizer)
-    # loss_action = hil.OptimizeNNactions(epochs, TrainingSetActions, NN_actions, gamma_actions_false, gamma_actions_true, T, optimizer)
-    # loss_options = hil.OptimizeNNoptions(epochs, TrainingSet, NN_options, gamma_reshaped_options, T, optimizer)
-    loss = hil.OptimizeLossAndRegularizerTot(epochs, TrainingSetTermination, NN_termination, gamma_tilde_reshaped, 
-                                             TrainingSetActions, NN_actions, gamma_actions_false, gamma_actions_true,
-                                             TrainingSet, NN_options, gamma_reshaped_options, eta, lambdas, T, optimizer, 
-                                             gamma, option_space, labels, size_input)
     
-    # loss = hil.OptimizeLoss(epochs, TrainingSetTermination, NN_termination, gamma_tilde_reshaped, 
-    #                         TrainingSetActions, NN_actions, gamma_actions_false, gamma_actions_true,
-    #                         TrainingSet, NN_options, gamma_reshaped_options, T, optimizer)
+    
+    # loss = hil.OptimizeLossAndRegularizerTot(epochs, TrainingSetTermination, NN_termination, gamma_tilde_reshaped, 
+    #                                          TrainingSetActions, NN_actions, gamma_actions_false, gamma_actions_true,
+    #                                          TrainingSet, NN_options, gamma_reshaped_options, eta, lambdas, T, optimizer, 
+    #                                          gamma, option_space, labels, size_input)
+    
+    loss = hil.OptimizeLossAndRegularizerTotBatch(epochs, TrainingSetTermination, NN_termination, gamma_tilde_reshaped, 
+                                                  TrainingSetActions, NN_actions, gamma_actions_false, gamma_actions_true,
+                                                  TrainingSet, NN_options, gamma_reshaped_options, eta, lambdas, T, optimizer, 
+                                                  gamma, option_space, labels, size_input, 32)
 
     print('Maximization done, Total Loss:',float(loss))#float(loss_options+loss_action+loss_termination))
 
@@ -107,7 +108,7 @@ for n in range(N):
 Triple = hil.Triple(NN_options, NN_actions, NN_termination)
 env = gym.make('MountainCar-v0')
 env._max_episode_steps = 1200
-max_epoch = 200
+max_epoch = 1000
 
 trajHIL, controlHIL, optionHIL, terminationHIL, flagHIL = sim.HierarchicalPolicySim(env, Triple, zeta, mu, max_epoch, 1, option_space, size_input)
 
@@ -142,6 +143,36 @@ plt.xlabel('Position')
 plt.ylabel('Velocity')
 plt.savefig('HIL_option_state_action_distribution.eps', format='eps')
 plt.show()
+
+# %%
+
+x, u, o, b = sim.VideoHierarchicalPolicy('MountainCar-v0', 'HILvideo', Triple, zeta, mu, max_epoch, option_space, size_input)
+
+
+fig = plt.figure()
+ax1 = plt.subplot(311)
+plot_action = plt.scatter(x[:,0], x[:,1], c=o, marker='x', cmap='cool');
+cbar = fig.colorbar(plot_action, ticks=[0, 1])
+cbar.ax.set_yticklabels(['Option1', 'Option2'])
+#plt.xlabel('Position')
+plt.ylabel('Velocity')
+plt.setp(ax1.get_xticklabels(), visible=False)
+ax2 = plt.subplot(312, sharex=ax1)
+plot_action = plt.scatter(x[:,0], x[:,1], c=u, marker='x', cmap='winter');
+cbar = fig.colorbar(plot_action, ticks=[0, 0.5, 1])
+cbar.ax.set_yticklabels(['Left', 'No Action', 'Right'])
+#plt.xlabel('Position')
+plt.ylabel('Velocity')
+plt.setp(ax2.get_xticklabels(), visible=False)
+ax3 = plt.subplot(313, sharex=ax1)
+plot_action = plt.scatter(x[0:-1,0], x[0:-1,1], c=b, marker='x', cmap='copper');
+cbar = fig.colorbar(plot_action, ticks=[0, 1])
+cbar.ax.set_yticklabels(['Same Option', 'Terminate'])
+plt.xlabel('Position')
+plt.ylabel('Velocity')
+plt.savefig('HIL_option_state_action_distribution.eps', format='eps')
+plt.show()
+
 
 # %% Understanding Regularization
 
