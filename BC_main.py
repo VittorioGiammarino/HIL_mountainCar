@@ -39,7 +39,7 @@ env = gym.make('MountainCar-v0')
 env._max_episode_steps = 1200
 max_epoch = 200
 
-nSamples = [200, 500, 1000, 2000, len(TrainingSet)]
+nSamples = [200, 500, 1000, 2000, 3000, len(TrainingSet)]
 average_NN1, success_percentageNN1 = bc.EvaluationNN1(env, action_space, size_input, labels, TrainingSet, nSamples, max_epoch)
 average_NN2, success_percentageNN2 = bc.EvaluationNN2(env, action_space, size_input, labels, TrainingSet, nSamples, max_epoch)
 average_NN3, success_percentageNN3 = bc.EvaluationNN3(env, action_space, size_input, labels, TrainingSet, nSamples, max_epoch)
