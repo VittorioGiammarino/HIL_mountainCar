@@ -9,7 +9,6 @@ Created on Fri Jul 17 18:40:29 2020
 import numpy as np
 import gym
 
-
 def FlatPolicySim(env, model, max_epoch, nTraj, size_input):
     
     traj = [[None]*1 for _ in range(nTraj)]
@@ -19,7 +18,7 @@ def FlatPolicySim(env, model, max_epoch, nTraj, size_input):
     for episode in range(nTraj):
         done = False
         obs = env.reset()
-        x = np.empty((0,2),int)
+        x = np.empty((0,size_input),int)
         x = np.append(x, obs.reshape((1,size_input)), axis=0)
         u_tot = np.empty((0,0))
     
@@ -70,7 +69,7 @@ def VideoFlatPolicy(environment, directory, model, size_input):
             
     env.close()
     
-def HierarchicalPolicySim():
+def HierarchicalPolicySim(env, Triple, zeta, mu, max_epoch, nTraj, option_space, size_input):
     traj = [[None]*1 for _ in range(nTraj)]
     control = [[None]*1 for _ in range(nTraj)]
     Option = [[None]*1 for _ in range(nTraj)]
@@ -80,7 +79,7 @@ def HierarchicalPolicySim():
     for episode in range(nTraj):
         done = False
         obs = env.reset()
-        x = np.empty((0,0),int)
+        x = np.empty((0,size_input),int)
         x = np.append(x, obs.reshape((1,size_input)), axis=0)
         u_tot = np.empty((0,0))
         o_tot = np.empty((0,0),int)
@@ -96,8 +95,8 @@ def HierarchicalPolicySim():
         o_tot = np.append(o_tot,o)
         
         # Termination
-        state = stateSpace[x[0],:].reshape(1,len(stateSpace[x[0],:]))
-        prob_b = NN_termination(np.append(state,[[o]], axis=1)).numpy()
+        state = obs.reshape((1,size_input))
+        prob_b = Triple.NN_termination(np.append(state,[[o]], axis=1)).numpy()
         prob_b_rescaled = np.divide(prob_b,np.amin(prob_b)+0.01)
         for i in range(1,prob_b_rescaled.shape[1]):
             prob_b_rescaled[0,i]=prob_b_rescaled[0,i]+prob_b_rescaled[0,i-1]
@@ -111,7 +110,7 @@ def HierarchicalPolicySim():
         
         o_prob_tilde = np.empty((1,option_space))
         if b_bool == True:
-            o_prob_tilde = NN_options(state).numpy()
+            o_prob_tilde = Triple.NN_options(state).numpy()
         else:
             o_prob_tilde[0,:] = zeta/option_space*np.ones((1,option_space))
             o_prob_tilde[0,o] = 1 - zeta + zeta/option_space
@@ -125,36 +124,29 @@ def HierarchicalPolicySim():
         o_tot = np.append(o_tot,o)
         
         for k in range(0,max_epoch):
-            state = stateSpace[x[k],:].reshape(1,len(stateSpace[x[k],:]))
+            state = obs.reshape((1,size_input))
             # draw action
-            prob_u = NN_actions(np.append(state,[[o]], axis=1)).numpy()
+            prob_u = Triple.NN_actions(np.append(state,[[o]], axis=1)).numpy()
             prob_u_rescaled = np.divide(prob_u,np.amin(prob_u)+0.01)
             for i in range(1,prob_u_rescaled.shape[1]):
                 prob_u_rescaled[0,i]=prob_u_rescaled[0,i]+prob_u_rescaled[0,i-1]
             draw_u=np.divide(np.random.rand(),np.amin(prob_u)+0.01)
             u = np.amin(np.where(draw_u<prob_u_rescaled)[1])
-            
-            # given action, draw next state
-            x_k_possible=np.where(P[x[k],:,int(u)]!=0)
-            prob = P[x[k],x_k_possible[0][:],int(u)]
-            prob_rescaled = np.divide(prob,np.amin(prob))
-            
-            for i in range(1,prob_rescaled.shape[0]):
-                prob_rescaled[i]=prob_rescaled[i]+prob_rescaled[i-1]
-            draw=np.divide(np.random.rand(),np.amin(prob))
-            index_x_plus1=np.amin(np.where(draw<prob_rescaled))
-            x = np.append(x, x_k_possible[0][index_x_plus1])
             u_tot = np.append(u_tot,u)
             
-            if x[k+1]==terminal_state:
-                state = stateSpace[terminal_state,:].reshape(1,len(stateSpace[terminal_state,:]))
-                u_tot = np.append(u_tot,np.argmax(NN_actions(np.append(state,[[o]], axis=1)).numpy()))
+            # given action, draw next state
+            action = u*2
+            obs, reward, done, info = env.step(action)
+            x = np.append(x, obs.reshape((1,size_input)), axis=0)
+        
+            if done == True:
+                u_tot = np.append(u_tot,0.5)
                 break
             
             # Select Termination
             # Termination
-            state_plus1 = stateSpace[x[k+1],:].reshape(1,len(stateSpace[x[k+1],:]))
-            prob_b = NN_termination(np.append(state_plus1,[[o]], axis=1)).numpy()
+            state_plus1 = obs.reshape((1,size_input))
+            prob_b = Triple.NN_termination(np.append(state_plus1,[[o]], axis=1)).numpy()
             prob_b_rescaled = np.divide(prob_b,np.amin(prob_b)+0.01)
             for i in range(1,prob_b_rescaled.shape[1]):
                 prob_b_rescaled[0,i]=prob_b_rescaled[0,i]+prob_b_rescaled[0,i-1]
@@ -168,7 +160,7 @@ def HierarchicalPolicySim():
         
             o_prob_tilde = np.empty((1,option_space))
             if b_bool == True:
-                o_prob_tilde = NN_options(state_plus1).numpy()
+                o_prob_tilde = Triple.NN_options(state_plus1).numpy()
             else:
                 o_prob_tilde[0,:] = zeta/option_space*np.ones((1,option_space))
                 o_prob_tilde[0,o] = 1 - zeta + zeta/option_space
@@ -182,17 +174,11 @@ def HierarchicalPolicySim():
             o_tot = np.append(o_tot,o)
             
         
-        traj[t][:] = x
-        control[t][:]=u_tot
-        Option[t][:]=o_tot
-        Termination[t][:]=b_tot
-        
-        if x[-1]==terminal_state:
-            success = 1
-        else:
-            success = 0
-                
-        flag = np.append(flag,success)
+        traj[episode][:] = x
+        control[episode][:]=u_tot
+        Option[episode][:]=o_tot
+        Termination[episode][:]=b_tot
+        flag = np.append(flag,done)
         
     return traj, control, Option, Termination, flag                
     

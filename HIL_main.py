@@ -12,6 +12,7 @@ import tensorflow.keras.backend as kb
 import numpy as np
 import matplotlib.pyplot as plt
 import Simulation as sim
+import gym
 import BehavioralCloning as bc
 import HierarchicalImitationLearning as hil
 import concurrent.futures
@@ -20,8 +21,8 @@ import concurrent.futures
 bc_data_dir = 'data'
 TrainingSet, labels = hil.PreprocessData(bc_data_dir)
 
-TrainingSet = TrainingSet[0:168,:]
-labels = labels[0:168]
+TrainingSet = TrainingSet[0:1000,:]
+labels = labels[0:1000]
 # %%
 fig = plt.figure()
 plot_action = plt.scatter(TrainingSet[:,0], TrainingSet[:,1], c=labels, marker='x', cmap='winter');
@@ -45,7 +46,6 @@ NN_termination = hil.NN_termination(termination_space, size_input)
 
 # %% Baum-Welch for provable HIL iteration
 
-ntraj = 10
 N = 10
 zeta = 0.1
 mu = np.ones(option_space)*np.divide(1,option_space)
@@ -59,27 +59,27 @@ for n in range(N):
     print('iter', n, '/', N)
     
     # Uncomment for sequential Running
-    alpha = hil.Alpha(TrainingSet, labels, option_space, termination_space, mu, zeta, NN_options, NN_actions, NN_termination)
-    beta = hil.Beta(TrainingSet, labels, option_space, termination_space, zeta, NN_options, NN_actions, NN_termination)
-    gamma = hil.Gamma(TrainingSet, option_space, termination_space, alpha, beta)
-    gamma_tilde = hil.GammaTilde(TrainingSet, labels, beta, alpha, 
-                                  NN_options, NN_actions, NN_termination, zeta, option_space, termination_space)
+    # alpha = hil.Alpha(TrainingSet, labels, option_space, termination_space, mu, zeta, NN_options, NN_actions, NN_termination)
+    # beta = hil.Beta(TrainingSet, labels, option_space, termination_space, zeta, NN_options, NN_actions, NN_termination)
+    # gamma = hil.Gamma(TrainingSet, option_space, termination_space, alpha, beta)
+    # gamma_tilde = hil.GammaTilde(TrainingSet, labels, beta, alpha, 
+    #                               NN_options, NN_actions, NN_termination, zeta, option_space, termination_space)
     
     # MultiThreading Running
-    # with concurrent.futures.ThreadPoolExecutor() as executor:
-    #     f1 = executor.submit(hil.Alpha, TrainingSet, labels, option_space, termination_space, mu, 
-    #                           zeta, NN_options, NN_actions, NN_termination)
-    #     f2 = executor.submit(hil.Beta, TrainingSet, labels, option_space, termination_space, zeta, 
-    #                           NN_options, NN_actions, NN_termination)  
-    #     alpha = f1.result()
-    #     beta = f2.result()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        f1 = executor.submit(hil.Alpha, TrainingSet, labels, option_space, termination_space, mu, 
+                              zeta, NN_options, NN_actions, NN_termination)
+        f2 = executor.submit(hil.Beta, TrainingSet, labels, option_space, termination_space, zeta, 
+                              NN_options, NN_actions, NN_termination)  
+        alpha = f1.result()
+        beta = f2.result()
         
-    # with concurrent.futures.ThreadPoolExecutor() as executor:
-    #     f3 = executor.submit(hil.Gamma, TrainingSet, option_space, termination_space, alpha, beta)
-    #     f4 = executor.submit(hil.GammaTilde, TrainingSet, labels, beta, alpha, 
-    #                           NN_options, NN_actions, NN_termination, zeta, option_space, termination_space)  
-    #     gamma = f3.result()
-    #     gamma_tilde = f4.result()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        f3 = executor.submit(hil.Gamma, TrainingSet, option_space, termination_space, alpha, beta)
+        f4 = executor.submit(hil.GammaTilde, TrainingSet, labels, beta, alpha, 
+                              NN_options, NN_actions, NN_termination, zeta, option_space, termination_space)  
+        gamma = f3.result()
+        gamma_tilde = f4.result()
         
     print('Expectation done')
     print('Starting maximization step')
@@ -105,7 +105,43 @@ for n in range(N):
 
 # %% Evaluation 
 Triple = hil.Triple(NN_options, NN_actions, NN_termination)
+env = gym.make('MountainCar-v0')
+env._max_episode_steps = 1200
+max_epoch = 200
 
+trajHIL, controlHIL, optionHIL, terminationHIL, flagHIL = sim.HierarchicalPolicySim(env, Triple, zeta, mu, max_epoch, 1, option_space, size_input)
+
+positionHIL = np.empty((0))
+velocityHIL = np.empty((0))
+actionHIL = np.empty((0))
+optionsHIL = np.empty((0))
+terminationsHIL = np.empty((0))
+for j in range(len(trajHIL)):
+    for i in range(len(trajHIL[j])-1):
+        positionHIL = np.append(positionHIL, trajHIL[j][i][0])
+        velocityHIL = np.append(velocityHIL, trajHIL[j][i][1])
+        actionHIL = np.append(actionHIL, controlHIL[j][i])
+        optionsHIL = np.append(optionsHIL, optionHIL[j][i])
+        terminationsHIL = np.append(terminationsHIL, terminationHIL[j][i])
+        
+
+
+# %%
+fig = plt.figure()
+plt.subplot(211)
+plot_action = plt.scatter(positionHIL, velocityHIL, c=optionsHIL, marker='x', cmap='cool');
+cbar = fig.colorbar(plot_action, ticks=[0, 1])
+cbar.ax.set_yticklabels(['Option1', 'Option2'])
+plt.xlabel('Position')
+plt.ylabel('Velocity')
+plt.subplot(212)
+plot_action = plt.scatter(positionHIL, velocityHIL, c=actionHIL, marker='x', cmap='winter');
+cbar = fig.colorbar(plot_action, ticks=[0, 0.5, 1])
+cbar.ax.set_yticklabels(['Left', 'No Action', 'Right'])
+plt.xlabel('Position')
+plt.ylabel('Velocity')
+plt.savefig('HIL_option_state_action_distribution.eps', format='eps')
+plt.show()
 
 # %% Understanding Regularization
 
