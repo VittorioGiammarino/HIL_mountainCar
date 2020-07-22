@@ -186,7 +186,7 @@ def HierarchicalPolicySim(env, Triple, zeta, mu, max_epoch, nTraj, option_space,
     
 def VideoHierarchicalPolicy(environment, directory, Triple, zeta, mu, max_epoch, option_space, size_input):
     env = gym.make(environment)
-    env._max_episode_steps = 1200
+    env._max_episode_steps = max_epoch
     
     # Record the environment
     env = gym.wrappers.Monitor(env, directory, resume=True)

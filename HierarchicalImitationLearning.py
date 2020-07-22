@@ -10,10 +10,9 @@ import tensorflow as tf
 import numpy as np
 import argparse
 import os
-import gym
+import Simulation as sim
 from tensorflow import keras
 import tensorflow.keras.backend as kb
-import numpy as np
 import BehavioralCloning as bc
 import concurrent.futures
 
@@ -665,46 +664,50 @@ def OptimizeLossAndRegularizerTotBatch(epochs, TrainingSetTermination, NN_termin
     return loss
 
 
-def BaumWelch(labels, TrainingSet, size_input, action_space, option_space, termination_space, N, zeta, mu, lambdas, eta, Triple_init):
-    NN_Options = NN_options(option_space, size_input)
-    NN_Actions = NN_actions(action_space, size_input)
-    NN_Termination = NN_termination(termination_space, size_input)
-    
-    NN_Options.set_weights(Triple_init.options_weights)
-    NN_Actions.set_weights(Triple_init.actions_weights)
-    NN_Termination.set_weights(Triple_init.termination_weights)
-    
-    T = TrainingSet.shape[0]
-    TrainingSet_Termination = TrainingSetTermination(TrainingSet, option_space, size_input)
-    TrainingSet_Actions, labels_reshaped = TrainingAndLabelsReshaped(option_space,T, TrainingSet, labels, size_input)
+def BaumWelch(EV, lambdas, eta):
+    NN_Options = EV.Triple_init.NN_options
+    NN_Actions = EV.Triple_init.NN_actions
+    NN_Termination = EV.Triple_init.NN_termination
+        
+    T = EV.TrainingSet.shape[0]
+    TrainingSet_Termination = TrainingSetTermination(EV.TrainingSet, EV.option_space, EV.size_input)
+    TrainingSet_Actions, labels_reshaped = TrainingAndLabelsReshaped(EV.option_space,T, EV.TrainingSet, EV.labels, EV.size_input)
 
-    for n in range(N):
-        print('iter', n, '/', N)
+    for n in range(EV.N):
+        print('iter', n, '/', EV.N)
+        
+        alpha = Alpha(EV.TrainingSet, EV.labels, EV.option_space, EV.termination_space, EV.mu, 
+                      EV.zeta, NN_Options, NN_Actions, NN_Termination)
+        beta = Beta(EV.TrainingSet, EV.labels, EV.option_space, EV.termination_space, EV.zeta, 
+                    NN_Options, NN_Actions, NN_Termination)
+        gamma = Gamma(EV.TrainingSet, EV.option_space, EV.termination_space, alpha, beta)
+        gamma_tilde = GammaTilde(EV.TrainingSet, EV.labels, beta, alpha, 
+                                 NN_Options, NN_Actions, NN_Termination, EV.zeta, EV.option_space, EV.termination_space)
     
         # MultiThreading Running
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            f1 = executor.submit(Alpha, TrainingSet, labels, option_space, termination_space, mu, 
-                                 zeta, NN_Options, NN_Actions, NN_Termination)
-            f2 = executor.submit(Beta, TrainingSet, labels, option_space, termination_space, zeta, 
-                                 NN_Options, NN_Actions, NN_Termination)  
-            alpha = f1.result()
-            beta = f2.result()
+        # with concurrent.futures.ThreadPoolExecutor() as executor:
+        #     f1 = executor.submit(Alpha, EV.TrainingSet, EV.labels, EV.option_space, EV.termination_space, EV.mu, 
+        #                          EV.zeta, NN_Options, NN_Actions, NN_Termination)
+        #     f2 = executor.submit(Beta, EV.TrainingSet, EV.labels, EV.option_space, EV.termination_space, EV.zeta, 
+        #                          NN_Options, NN_Actions, NN_Termination)  
+        #     alpha = f1.result()
+        #     beta = f2.result()
         
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            f3 = executor.submit(Gamma, TrainingSet, option_space, termination_space, alpha, beta)
-            f4 = executor.submit(GammaTilde, TrainingSet, labels, beta, alpha, 
-                              NN_Options, NN_Actions, NN_Termination, zeta, option_space, termination_space)  
-            gamma = f3.result()
-            gamma_tilde = f4.result()
+        # with concurrent.futures.ThreadPoolExecutor() as executor:
+        #     f3 = executor.submit(Gamma, EV.TrainingSet, EV.option_space, EV.termination_space, alpha, beta)
+        #     f4 = executor.submit(GammaTilde, EV.TrainingSet, EV.labels, beta, alpha, 
+        #                       NN_Options, NN_Actions, NN_Termination, EV.zeta, EV.option_space, EV.termination_space)  
+        #     gamma = f3.result()
+        #     gamma_tilde = f4.result()
         
         print('Expectation done')
         print('Starting maximization step')
         optimizer = keras.optimizers.Adamax(learning_rate=1e-3)
         epochs = 50 #number of iterations for the maximization step
             
-        gamma_tilde_reshaped = GammaTildeReshape(gamma_tilde, option_space)
-        gamma_actions_false, gamma_actions_true = GammaReshapeActions(T, option_space, action_space, gamma, labels_reshaped)
-        gamma_reshaped_options = GammaReshapeOptions(T, option_space, gamma)
+        gamma_tilde_reshaped = GammaTildeReshape(gamma_tilde, EV.option_space)
+        gamma_actions_false, gamma_actions_true = GammaReshapeActions(T, EV.option_space, EV.action_space, gamma, labels_reshaped)
+        gamma_reshaped_options = GammaReshapeOptions(T, EV.option_space, gamma)
     
     
         # loss = hil.OptimizeLossAndRegularizerTot(epochs, TrainingSetTermination, NN_termination, gamma_tilde_reshaped, 
@@ -714,13 +717,32 @@ def BaumWelch(labels, TrainingSet, size_input, action_space, option_space, termi
     
         loss = OptimizeLossAndRegularizerTotBatch(epochs, TrainingSet_Termination, NN_Termination, gamma_tilde_reshaped, 
                                                   TrainingSet_Actions, NN_Actions, gamma_actions_false, gamma_actions_true,
-                                                  TrainingSet, NN_Options, gamma_reshaped_options, eta, lambdas, T, optimizer, 
-                                                  gamma, option_space, labels, size_input, 32)
+                                                  EV.TrainingSet, NN_Options, gamma_reshaped_options, eta, lambdas, T, optimizer, 
+                                                  gamma, EV.option_space, EV.labels, EV.size_input, 32)
 
         print('Maximization done, Total Loss:',float(loss))#float(loss_options+loss_action+loss_termination))
 
         
     return NN_Termination, NN_Actions, NN_Options
+
+
+def ValidationBW_reward(i, Experiment_Vars):
+        lambdas = tf.Variable(initial_value=Experiment_Vars.gain_lambdas[i]*tf.ones((Experiment_Vars.option_space,)), trainable=False)
+        eta = tf.Variable(initial_value=Experiment_Vars.gain_eta[i], trainable=False)
+        NN_Termination, NN_Actions, NN_Options = BaumWelch(Experiment_Vars, lambdas, eta)
+        list_triple = Triple(NN_Options, NN_Actions, NN_Termination)
+        [trajHIL, controlHIL, optionHIL, 
+         terminationHIL, flagHIL] = sim.HierarchicalPolicySim(Experiment_Vars.env, list_triple[i], 
+                                                              Experiment_Vars.zeta, Experiment_Vars.mu, Experiment_Vars.max_epoch, 
+                                                              100, Experiment_Vars.option_space, Experiment_Vars.size_input)
+        length_traj = np.empty((0))
+        for j in range(len(trajHIL)):
+            length_traj = np.append(length_traj, len(trajHIL[j][:]))
+        averageHIL = np.divide(np.sum(length_traj),len(length_traj))
+        success_percentageHIL = np.divide(np.sum(flagHIL),len(length_traj))
+        
+        return list_triple, averageHIL, success_percentageHIL
+
 
 def ValidationBW(labels, TrainingSet, action_space, option_space, termination_space, zeta, mu, NN_Options, NN_Actions, NN_Termination):
     T = TrainingSet.shape[0]
@@ -766,35 +788,176 @@ def ValidationBW(labels, TrainingSet, action_space, option_space, termination_sp
     print(float(loss))
         
     return loss
-    
-  
-def EvaluationBW(map, stateSpace, P, traj, control, ntraj, action_space, option_space, termination_space, 
-                                                           N, zeta, mu, lambdas, eta, Triple_weights_init):
-    averageBW = np.empty((0))
-    success_percentageBW = np.empty((0))
-    list_triple_weights = []
 
-    for i in range(len(ntraj)):
-        labels, TrainingSet = bc.ProcessData(traj[0:ntraj[i]][:],control[0:ntraj[i]][:],stateSpace)
-        NN_Termination, NN_Actions, NN_Options = BaumWelch(labels, TrainingSet, 
-                                                           action_space, option_space, termination_space, 
-                                                           N, zeta, mu, lambdas, eta, Triple_weights_init)
-        list_triple_weights.append(Triple_Weights(NN_Options.get_weights(), NN_Actions.get_weights(), NN_Termination.get_weights()))
-        Trajs=100
-        base=ss.BaseStateIndex(stateSpace,map)
-        TERMINAL_STATE_INDEX = ss.TerminalStateIndex(stateSpace,map)
-        [trajBW, controlBW, OptionBW, 
-         TerminationBW, flagBW]=sim.HierarchicalStochasticSampleTrajMDP(P, stateSpace, NN_Options, NN_Actions, NN_Termination, 
-                                                                        mu, 1000, Trajs, base, TERMINAL_STATE_INDEX, 
-                                                                        zeta, option_space)
-        length_trajBW = np.empty((0))
-        for j in range(len(trajBW)):
-            length_trajBW = np.append(length_trajBW, len(trajBW[j][:]))
-        averageBW = np.append(averageBW,np.divide(np.sum(length_trajBW),len(length_trajBW)))
-        success_percentageBW = np.append(success_percentageBW,np.divide(np.sum(flagBW),len(length_trajBW)))
-      
-    return averageBW, success_percentageBW, list_triple_weights
+def Regularizer1(TrainingSet, option_space, size_input, NN_actions, T, lambdas):
+    ta = tf.TensorArray(tf.float32, size=0, dynamic_size=True, clear_after_read=False)
+    for i in range(option_space):
+        ta = ta.write(i,kb.sum(-kb.sum(NN_actions(TrainingSetPiLo(TrainingSet,i,size_input))*kb.log(
+                        NN_actions(TrainingSetPiLo(TrainingSet,i,size_input))),1)/T,0))
+    responsibilities = ta.stack()
+    values = kb.sum(lambdas*responsibilities) 
     
+    return -values
+
+
+def OptimizeRegularizer1Batch(epochs, NN_termination, NN_actions, 
+                               TrainingSet, NN_options, lambdas, optimizer, option_space, size_input, size_batch):
+    
+    n_batches = np.int(TrainingSet.shape[0]/size_batch)
+    
+    for epoch in range(epochs):
+        print("\nStart of epoch %d" % (epoch,))
+        
+        for n in range(n_batches):
+            print("\n Batch %d" % (n+1,))
+            with tf.GradientTape() as tape:
+                weights = [NN_termination.trainable_weights, NN_actions.trainable_weights, NN_options.trainable_weights]
+                tape.watch(weights)
+                loss = Regularizer1(TrainingSet[n*size_batch:(n+1)*size_batch,:], option_space, size_input, 
+                                    NN_actions, size_batch, lambdas)
+            
+            grads = tape.gradient(loss,weights)
+            optimizer.apply_gradients(zip(grads[1][:], NN_actions.trainable_weights))
+            print('options loss:', float(loss))
+               
+    return loss    
+  
+def BaumWelchRegularizer1(EV, lambdas):
+    NN_Options = EV.Triple_init.NN_options
+    NN_Actions = EV.Triple_init.NN_actions
+    NN_Termination = EV.Triple_init.NN_termination
+        
+    for n in range(1):
+        print('iter', n, '/', EV.N)
+
+        print('Starting maximization step')
+        optimizer = keras.optimizers.Adamax(learning_rate=1e-3)
+        epochs = 100 #number of iterations for the maximization step
+                
+        loss = OptimizeRegularizer1Batch(epochs, NN_Termination, NN_Actions, 
+                                         EV.TrainingSet, NN_Options, lambdas, optimizer, EV.option_space, EV.size_input, 32)
+
+        print('Maximization done, Total Loss:',float(loss))#float(loss_options+loss_action+loss_termination))
+
+        
+    return NN_Termination, NN_Actions, NN_Options
+    
+def Regularizer2(gamma_tilde_reshaped, gamma_reshaped_options, gamma_actions_true, gamma_actions_false, 
+                    NN_termination, NN_options, NN_actions,TrainingSetTermination, TrainingSetActions, 
+                    TrainingSet, eta, gamma, T, option_space, labels, size_input):
+    # Regularization 1
+    regular_loss = 0
+    for i in range(option_space):
+        option =kb.reshape(NN_options(TrainingSet)[:,i],(T,1))
+        option_concat = kb.concatenate((option,option),1)
+        log_gamma = kb.cast(kb.transpose(kb.log(gamma[i,:,:])),'float32' )
+        policy_termination = NN_termination(TrainingSetPiLo(TrainingSet,i,size_input))
+        array = tf.TensorArray(tf.float32, size=0, dynamic_size=True, clear_after_read=False)
+        for j in range(T):
+            array = array.write(j,NN_actions(TrainingSetPiLo(TrainingSet,i,size_input))[j,kb.cast(labels[j],'int32')])
+        policy_action = array.stack()
+        policy_action_reshaped = kb.reshape(policy_action,(T,1))
+        policy_action_final = kb.concatenate((policy_action_reshaped,policy_action_reshaped),1)
+        regular_loss = regular_loss -kb.sum(policy_action_final*option_concat*policy_termination*log_gamma)/T
+        
+    return eta*regular_loss
+    
+def OptimizeRegularizer2Batch(epochs, TrainingSetTermination, NN_termination, gamma_tilde_reshaped, 
+                               TrainingSetActions, NN_actions, gamma_actions_false, gamma_actions_true,
+                               TrainingSet, NN_options, gamma_reshaped_options, eta, T, optimizer, 
+                               gamma, option_space, labels, size_input, size_batch):
+    
+    n_batches = np.int(TrainingSet.shape[0]/size_batch)
+    
+    for epoch in range(epochs):
+        print("\nStart of epoch %d" % (epoch,))
+        
+        for n in range(n_batches):
+            print("\n Batch %d" % (n+1,))
+            with tf.GradientTape() as tape:
+                weights = [NN_termination.trainable_weights, NN_actions.trainable_weights, NN_options.trainable_weights]
+                tape.watch(weights)
+                loss = Regularizer2(gamma_tilde_reshaped[option_space*n*size_batch:option_space*(n+1)*size_batch,:], 
+                                    gamma_reshaped_options[n*size_batch:(n+1)*size_batch,:], 
+                                    gamma_actions_true[option_space*n*size_batch:option_space*(n+1)*size_batch,:], 
+                                    gamma_actions_false[option_space*n*size_batch:option_space*(n+1)*size_batch,:], 
+                                    NN_termination, NN_options, NN_actions,
+                                    TrainingSetTermination[option_space*n*size_batch:option_space*(n+1)*size_batch,:], 
+                                    TrainingSetActions[option_space*n*size_batch:option_space*(n+1)*size_batch,:], 
+                                    TrainingSet[n*size_batch:(n+1)*size_batch,:], 
+                                    eta, gamma[:,:,n*size_batch:(n+1)*size_batch], 
+                                    size_batch, option_space, labels, size_input)
+
+            
+            grads = tape.gradient(loss,weights)
+            optimizer.apply_gradients(zip(grads[0][:], NN_termination.trainable_weights))
+            optimizer.apply_gradients(zip(grads[1][:], NN_actions.trainable_weights))
+            optimizer.apply_gradients(zip(grads[2][:], NN_options.trainable_weights))
+            print('options loss:', float(loss))
+            
+        
+    return loss    
+
+def BaumWelchRegularizer2(EV, eta):
+    NN_Options = EV.Triple_init.NN_options
+    NN_Actions = EV.Triple_init.NN_actions
+    NN_Termination = EV.Triple_init.NN_termination
+        
+    T = EV.TrainingSet.shape[0]
+    TrainingSet_Termination = TrainingSetTermination(EV.TrainingSet, EV.option_space, EV.size_input)
+    TrainingSet_Actions, labels_reshaped = TrainingAndLabelsReshaped(EV.option_space,T, EV.TrainingSet, EV.labels, EV.size_input)
+
+    for n in range(2):
+        print('iter', n, '/', EV.N)
+        
+        # alpha = Alpha(EV.TrainingSet, EV.labels, EV.option_space, EV.termination_space, EV.mu, 
+        #               EV.zeta, NN_Options, NN_Actions, NN_Termination)
+        # beta = Beta(EV.TrainingSet, EV.labels, EV.option_space, EV.termination_space, EV.zeta, 
+        #             NN_Options, NN_Actions, NN_Termination)
+        # gamma = Gamma(EV.TrainingSet, EV.option_space, EV.termination_space, alpha, beta)
+        # gamma_tilde = GammaTilde(EV.TrainingSet, EV.labels, beta, alpha, 
+        #                          NN_Options, NN_Actions, NN_Termination, EV.zeta, EV.option_space, EV.termination_space)
+    
+        # MultiThreading Running
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            f1 = executor.submit(Alpha, EV.TrainingSet, EV.labels, EV.option_space, EV.termination_space, EV.mu, 
+                                  EV.zeta, NN_Options, NN_Actions, NN_Termination)
+            f2 = executor.submit(Beta, EV.TrainingSet, EV.labels, EV.option_space, EV.termination_space, EV.zeta, 
+                                  NN_Options, NN_Actions, NN_Termination)  
+            alpha = f1.result()
+            beta = f2.result()
+        
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            f3 = executor.submit(Gamma, EV.TrainingSet, EV.option_space, EV.termination_space, alpha, beta)
+            f4 = executor.submit(GammaTilde, EV.TrainingSet, EV.labels, beta, alpha, 
+                              NN_Options, NN_Actions, NN_Termination, EV.zeta, EV.option_space, EV.termination_space)  
+            gamma = f3.result()
+            gamma_tilde = f4.result()
+        
+        print('Expectation done')
+        print('Starting maximization step')
+        optimizer = keras.optimizers.Adamax(learning_rate=1e-3)
+        epochs = 50 #number of iterations for the maximization step
+            
+        gamma_tilde_reshaped = GammaTildeReshape(gamma_tilde, EV.option_space)
+        gamma_actions_false, gamma_actions_true = GammaReshapeActions(T, EV.option_space, EV.action_space, gamma, labels_reshaped)
+        gamma_reshaped_options = GammaReshapeOptions(T, EV.option_space, gamma)
+    
+    
+        # loss = hil.OptimizeLossAndRegularizerTot(epochs, TrainingSetTermination, NN_termination, gamma_tilde_reshaped, 
+        #                                          TrainingSetActions, NN_actions, gamma_actions_false, gamma_actions_true,
+        #                                          TrainingSet, NN_options, gamma_reshaped_options, eta, lambdas, T, optimizer, 
+        #                                          gamma, option_space, labels, size_input)
+    
+        loss = OptimizeRegularizer2Batch(epochs, TrainingSet_Termination, NN_Termination, gamma_tilde_reshaped, 
+                                                  TrainingSet_Actions, NN_Actions, gamma_actions_false, gamma_actions_true,
+                                                  EV.TrainingSet, NN_Options, gamma_reshaped_options, eta, T, optimizer, 
+                                                  gamma, EV.option_space, EV.labels, EV.size_input, 32)
+
+        print('Maximization done, Total Loss:',float(loss))#float(loss_options+loss_action+loss_termination))
+
+        
+    return NN_Termination, NN_Actions, NN_Options
     
 class Triple:
     def __init__(self, NN_options, NN_actions, NN_termination):
@@ -805,7 +968,25 @@ class Triple:
         self.actions_weights = NN_actions.get_weights()
         self.termination_weights = NN_termination.get_weights()
     
+class Experiment_design:
+    def __init__(self, labels, TrainingSet, size_input, action_space, option_space, termination_space, N, zeta, mu, Triple_init, gain_lambdas,
+                  gain_eta, env, max_epoch):
+        self.labels = labels
+        self.TrainingSet = TrainingSet
+        self.size_input = size_input
+        self.action_space = action_space
+        self.option_space = option_space
+        self.termination_space = termination_space
+        self.N = N
+        self.zeta = zeta
+        self.mu = mu
+        self.Triple_init = Triple_init
+        self.gain_lambdas = gain_lambdas
+        self.gain_eta = gain_eta
+        self.env = env
+        self.max_epoch = max_epoch
     
-    
+
+
     
     
