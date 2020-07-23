@@ -23,8 +23,8 @@ import multiprocessing
 bc_data_dir = 'data'
 TrainingSet, labels = hil.PreprocessData(bc_data_dir)
 
-TrainingSet = TrainingSet[0:200,:]
-labels = labels[0:200]
+TrainingSet = TrainingSet[0:500,:]
+labels = labels[0:500]
 # %% Expert Plot
 fig = plt.figure()
 plot_action = plt.scatter(TrainingSet[:,0], TrainingSet[:,1], c=labels, marker='x', cmap='winter');
@@ -46,12 +46,12 @@ NN_options = hil.NN_options(option_space, size_input)
 NN_actions = hil.NN_actions(action_space, size_input)
 NN_termination = hil.NN_termination(termination_space, size_input)
 
-N=10 #Iterations
+N=2 #Iterations
 zeta = 0.1 #Failure factor
 mu = np.ones(option_space)*np.divide(1,option_space) #initial option probability distribution
 
-gain_lambdas = np.logspace(-1, 3, 1, dtype = 'float32')
-gain_eta = np.logspace(-1, 3, 1, dtype = 'float32')
+gain_lambdas = np.logspace(-2, 3, 3, dtype = 'float32')
+gain_eta = np.logspace(-2, 3, 3, dtype = 'float32')
 ETA, LAMBDAS = np.meshgrid(gain_eta, gain_lambdas)
 LAMBDAS = LAMBDAS.reshape(len(gain_lambdas)*len(gain_eta),)
 ETA = ETA.reshape(len(gain_lambdas)*len(gain_eta),)
@@ -139,9 +139,16 @@ num_cores = multiprocessing.cpu_count()
 results = Parallel(n_jobs=num_cores, prefer="threads")(delayed(hil.ValidationBW_reward)(i, ED) for i in inputs)
 
 # %%
-Best_Triple = results[3][0][3]#list_triple[Bestid]
+averageHIL = np.empty((0))
+for j in range(len(results)):
+    averageHIL = np.append(averageHIL, results[j][1])
+    
+Bestid = np.argmin(averageHIL) 
+Best_Triple = results[Bestid][0]
 x, u, o, b = sim.VideoHierarchicalPolicy('MountainCar-v0', 'HILvideo', Best_Triple, zeta, mu, max_epoch, option_space, size_input)
 
+#eta = 1000
+#lambda = 3.16
 
 fig = plt.figure()
 ax1 = plt.subplot(311)

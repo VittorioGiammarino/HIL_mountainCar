@@ -732,7 +732,7 @@ def ValidationBW_reward(i, Experiment_Vars):
         NN_Termination, NN_Actions, NN_Options = BaumWelch(Experiment_Vars, lambdas, eta)
         list_triple = Triple(NN_Options, NN_Actions, NN_Termination)
         [trajHIL, controlHIL, optionHIL, 
-         terminationHIL, flagHIL] = sim.HierarchicalPolicySim(Experiment_Vars.env, list_triple[i], 
+         terminationHIL, flagHIL] = sim.HierarchicalPolicySim(Experiment_Vars.env, list_triple, 
                                                               Experiment_Vars.zeta, Experiment_Vars.mu, Experiment_Vars.max_epoch, 
                                                               100, Experiment_Vars.option_space, Experiment_Vars.size_input)
         length_traj = np.empty((0))
