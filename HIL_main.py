@@ -11,18 +11,21 @@ from tensorflow import keras
 import tensorflow.keras.backend as kb
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.animation as anim
+import matplotlib as mpl
 import Simulation as sim
 import HierarchicalImitationLearning as hil
 import gym
 import BehavioralCloning as bc
 import concurrent.futures
+import pickle
 
 # %% map generation 
 bc_data_dir = 'data'
 TrainingSet, labels = hil.PreprocessData(bc_data_dir)
 
-TrainingSet = TrainingSet[0:1000,:]
-labels = labels[0:1000]
+TrainingSet = TrainingSet[0:4000,:]
+labels = labels[0:4000]
 # %%
 fig = plt.figure()
 plot_action = plt.scatter(TrainingSet[:,0], TrainingSet[:,1], c=labels, marker='x', cmap='winter');
@@ -53,7 +56,7 @@ T = TrainingSet.shape[0]
 TrainingSetTermination = hil.TrainingSetTermination(TrainingSet, option_space, size_input)
 TrainingSetActions, labels_reshaped = hil.TrainingAndLabelsReshaped(option_space,T, TrainingSet, labels, size_input)
 lambdas = tf.Variable(initial_value=1.*tf.ones((option_space,)), trainable=False)
-eta = tf.Variable(initial_value=1., trainable=False)
+eta = tf.Variable(initial_value=100., trainable=False)
 
 for n in range(N):
     print('iter', n, '/', N)
@@ -85,7 +88,7 @@ for n in range(N):
     print('Expectation done')
     print('Starting maximization step')
     optimizer = keras.optimizers.Adamax(learning_rate=1e-3)
-    epochs = 50 #number of iterations for the maximization step
+    epochs = 20 #number of iterations for the maximization step
             
     gamma_tilde_reshaped = hil.GammaTildeReshape(gamma_tilde, option_space)
     gamma_actions_false, gamma_actions_true = hil.GammaReshapeActions(T, option_space, action_space, gamma, labels_reshaped)
@@ -104,13 +107,23 @@ for n in range(N):
 
     print('Maximization done, Total Loss:',float(loss))#float(loss_options+loss_action+loss_termination))
 
+# %%
+Triple = hil.Triple(NN_options, NN_actions, NN_termination)
+Triple.save()
+
+# %%
+
+NN_Options, NN_Actions, NN_Termination = hil.Triple.load()
+New_Triple = hil.Triple(NN_Options, NN_Actions, NN_Termination)
+
+
 # %% Evaluation 
 Triple = hil.Triple(NN_options, NN_actions, NN_termination)
 env = gym.make('MountainCar-v0')
 env._max_episode_steps = 1200
 max_epoch = 1000
 
-trajHIL, controlHIL, optionHIL, terminationHIL, flagHIL = sim.HierarchicalPolicySim(env, Triple, zeta, mu, max_epoch, 1, option_space, size_input)
+trajHIL, controlHIL, optionHIL, terminationHIL, flagHIL = sim.HierarchicalPolicySim(env, Triple, zeta, mu, max_epoch, 100, option_space, size_input)
 
 positionHIL = np.empty((0))
 velocityHIL = np.empty((0))
@@ -124,7 +137,12 @@ for j in range(len(trajHIL)):
         actionHIL = np.append(actionHIL, controlHIL[j][i])
         optionsHIL = np.append(optionsHIL, optionHIL[j][i])
         terminationsHIL = np.append(terminationsHIL, terminationHIL[j][i])
-        
+ 
+length_traj = np.empty((0))
+for j in range(len(trajHIL)):
+    length_traj = np.append(length_traj, len(trajHIL[j][:]))
+averageHIL = np.divide(np.sum(length_traj),len(length_traj))
+success_percentageHIL = np.divide(np.sum(flagHIL),len(length_traj))
 
 
 # %%
@@ -146,8 +164,9 @@ plt.show()
 
 # %%
 
-x, u, o, b = sim.VideoHierarchicalPolicy('MountainCar-v0', 'HILvideo', Triple, zeta, mu, max_epoch, option_space, size_input)
+x, u, o, b = sim.VideoHierarchicalPolicy('MountainCar-v0', 'HILvideo', New_Triple, zeta, mu, max_epoch, option_space, size_input)
 
+# %%
 
 fig = plt.figure()
 ax1 = plt.subplot(311)
@@ -174,9 +193,58 @@ plt.savefig('HIL_option_state_action_distribution.eps', format='eps')
 plt.show()
 
 
+# %% Preparing Animation
 
-    
-    
+Writer = anim.writers['ffmpeg']
+writer = Writer(fps=30, metadata=dict(artist='Me'), bitrate=3800)
 
+fig = plt.figure()
+ax1 = plt.subplot(311)
+ticks = [0, 1]
+plot_action = plt.scatter(x[0:2,0], x[0:2,1], c=ticks[0:2], marker='x', cmap='cool');
+cbar = fig.colorbar(plot_action)
+cbar.set_ticks(ticks)
+cbar.set_ticklabels(['Option1', 'Option2'])
+#plt.xlabel('Position')
+plt.ylabel('Velocity')
+ax1.set_xlim(-1.25, 0.55)
+ax1.set_ylim(-0.07, 0.07)
+plt.setp(ax1.get_xticklabels(), visible=False)
+ax2 = plt.subplot(312, sharex=ax1)
+plot_option = plt.scatter(x[0:2,0], x[0:2,1], c=ticks[0:2], marker='x', cmap='winter');
+cbar = fig.colorbar(plot_option, ticks=[0, 0.5, 1])
+cbar.ax.set_yticklabels(['Left', 'No Action', 'Right'])
+#plt.xlabel('Position')
+plt.ylabel('Velocity')
+ax2.set_ylim(-0.07, 0.07)
+plt.setp(ax2.get_xticklabels(), visible=False)
+ax3 = plt.subplot(313, sharex=ax1)
+plot_termination = plt.scatter(x[0:2,0], x[0:2,1], c=ticks[0:2], marker='x', cmap='copper');
+cbar = fig.colorbar(plot_termination, ticks=[0, 1])
+cbar.ax.set_yticklabels(['Same Option', 'Terminate'])
+plt.xlabel('Position')
+plt.ylabel('Velocity')
+ax3.set_ylim(-0.07, 0.07)
+#plt.savefig('HIL_option_state_action_distribution.eps', format='eps')
+plt.show()
+
+#%% Animation
+
+
+def animation_frame(i, x, o, u, b):
+    plot_action.set_offsets(x[0:i,:])
+    plot_action.set_sizes(10*np.ones(i))
+    plot_action.set_array(o[0:i])
+    plot_option.set_offsets(x[0:i,:])
+    plot_option.set_sizes(10*np.ones(i))
+    plot_option.set_array(u[0:i])
+    plot_termination.set_offsets(x[0:i,:])
+    plot_termination.set_sizes(10*np.ones(i))
+    plot_termination.set_array(b[0:i])
+    return plot_action, plot_option, plot_termination,
+
+
+animation = anim.FuncAnimation(fig, func = animation_frame, frames=b.shape[0], fargs=(x, o, u, b))
+animation.save('animation.mp4', writer=writer)
 
 

@@ -967,6 +967,18 @@ class Triple:
         self.options_weights = NN_options.get_weights()
         self.actions_weights = NN_actions.get_weights()
         self.termination_weights = NN_termination.get_weights()
+        
+    def save(self):
+        self.NN_options.save('NN_options')
+        self.NN_actions.save('NN_actions')
+        self.NN_termination.save('NN_termination')
+        
+    def load():
+        NN_options = keras.models.load_model('NN_options')
+        NN_actions = keras.models.load_model('NN_actions')
+        NN_termination = keras.models.load_model('NN_termination')
+        
+        return NN_options, NN_actions, NN_termination
     
 class Experiment_design:
     def __init__(self, labels, TrainingSet, size_input, action_space, option_space, termination_space, N, zeta, mu, Triple_init, gain_lambdas,
