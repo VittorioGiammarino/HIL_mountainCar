@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 
 # %%    Store Data From Expert.
 
-bc_data_dir = 'data'
+bc_data_dir = 'Expert/Data'
 TrainingSet, labels = hil.PreprocessData(bc_data_dir)
 
 # %% NN Behavioral Cloning
@@ -61,7 +61,7 @@ plt.plot(nSamples, np.ones((len(nSamples))),'b', label='Expert')
 plt.xlabel('Number of Samples')
 plt.ylabel('Percentage of success')
 plt.legend(loc='lower right')
-plt.savefig('evaluation.eps', format='eps')
+plt.savefig('Figures/FiguresBC/evaluationBehavioralCloning.eps', format='eps')
 plt.show()
 
 # %% 
@@ -88,11 +88,11 @@ cbar = fig.colorbar(plot_action, ticks=[0, 0.5, 1])
 cbar.ax.set_yticklabels(['Left', 'No Action', 'Right'])
 plt.xlabel('Position')
 plt.ylabel('Velocity')
-plt.savefig('BC_state_action_distribution.eps', format='eps')
+plt.savefig('Figures/FiguresBC/BC_state_action_distribution.eps', format='eps')
 plt.show()
         
 
 # %% Make video sample
-sim.VideoFlatPolicy('MountainCar-v0', 'BCvideo', model3, size_input)
+sim.VideoFlatPolicy('MountainCar-v0', 'Videos/VideosBC', model3, size_input)
 
             

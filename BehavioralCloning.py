@@ -53,7 +53,7 @@ def NN1(action_space, size_input):
     keras.layers.Softmax()
     ])
 
-    tf.keras.utils.plot_model(model, to_file='model_plotNN1.png', 
+    tf.keras.utils.plot_model(model, to_file='Figures/FiguresBC/model_plotNN1.png', 
                               show_shapes=True, 
                               show_layer_names=True,
                               expand_nested=True)
@@ -71,7 +71,7 @@ def NN2(action_space, size_input):
     keras.layers.Softmax()
     ])
 
-    tf.keras.utils.plot_model(model, to_file='model_plotNN2.png', 
+    tf.keras.utils.plot_model(model, to_file='Figures/FiguresBC/model_plotNN2.png', 
                               show_shapes=True, 
                               show_layer_names=True,
                               expand_nested=True)
@@ -89,7 +89,7 @@ def NN3(action_space, size_input):
     keras.layers.Softmax()
     ])
 
-    tf.keras.utils.plot_model(model, to_file='model_plotNN2.png', 
+    tf.keras.utils.plot_model(model, to_file='Figures/FiguresBC/model_plotNN3.png', 
                               show_shapes=True, 
                               show_layer_names=True,
                               expand_nested=True)

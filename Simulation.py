@@ -189,7 +189,7 @@ def VideoHierarchicalPolicy(environment, directory, Triple, zeta, mu, max_epoch,
     env._max_episode_steps = max_epoch
     
     # Record the environment
-    env = gym.wrappers.Monitor(env, directory, resume=True)
+    env = gym.wrappers.Monitor(env, directory, resume=False)
 
     for episode in range(1):
         done = False

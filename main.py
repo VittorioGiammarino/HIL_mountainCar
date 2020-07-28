@@ -20,11 +20,11 @@ from joblib import Parallel, delayed
 import multiprocessing
 
 # %% Expert Data
-bc_data_dir = 'data'
+bc_data_dir = 'Expert/Data'
 TrainingSet, labels = hil.PreprocessData(bc_data_dir)
 
-TrainingSet = TrainingSet[0:500,:]
-labels = labels[0:500]
+TrainingSet = TrainingSet[0:4000,:]
+labels = labels[0:4000]
 # %% Expert Plot
 fig = plt.figure()
 plot_action = plt.scatter(TrainingSet[:,0], TrainingSet[:,1], c=labels, marker='x', cmap='winter');
@@ -32,7 +32,7 @@ cbar = fig.colorbar(plot_action, ticks=[0, 0.5, 1])
 cbar.ax.set_yticklabels(['Left', 'No Action', 'Right'])
 plt.xlabel('Position')
 plt.ylabel('Velocity')
-plt.savefig('Expert_state_action_distribution.eps', format='eps')
+plt.savefig('Figures/FiguresExpert/Expert_state_action_distribution.eps', format='eps')
 plt.show()
 
 
@@ -46,12 +46,12 @@ NN_options = hil.NN_options(option_space, size_input)
 NN_actions = hil.NN_actions(action_space, size_input)
 NN_termination = hil.NN_termination(termination_space, size_input)
 
-N=2 #Iterations
+N=5 #Iterations
 zeta = 0.1 #Failure factor
 mu = np.ones(option_space)*np.divide(1,option_space) #initial option probability distribution
 
-gain_lambdas = np.logspace(-2, 3, 3, dtype = 'float32')
-gain_eta = np.logspace(-2, 3, 3, dtype = 'float32')
+gain_lambdas = np.logspace(-1, 2, 3, dtype = 'float32')
+gain_eta = np.logspace(1, 3, 3, dtype = 'float32')
 ETA, LAMBDAS = np.meshgrid(gain_eta, gain_lambdas)
 LAMBDAS = LAMBDAS.reshape(len(gain_lambdas)*len(gain_eta),)
 ETA = ETA.reshape(len(gain_lambdas)*len(gain_eta),)
@@ -71,7 +71,7 @@ lambdas = tf.Variable(initial_value=1.*tf.ones((option_space,)), trainable=False
 NN_Termination, NN_Actions, NN_Options = hil.BaumWelchRegularizer1(ED, lambdas)
 Triple_reg1 = hil.Triple(NN_Options, NN_Actions, NN_Termination)
 
-x, u, o, b = sim.VideoHierarchicalPolicy('MountainCar-v0', 'Regularization1', Triple_reg1, zeta, mu, 200, option_space, size_input)
+x, u, o, b = sim.VideoHierarchicalPolicy('MountainCar-v0', 'Videos/VideosHIL/Reg1', Triple_reg1, zeta, mu, 200, option_space, size_input)
 
 fig = plt.figure()
 ax1 = plt.subplot(311)
@@ -94,7 +94,7 @@ cbar = fig.colorbar(plot_action, ticks=[0, 1])
 cbar.ax.set_yticklabels(['Same Option', 'Terminate'])
 plt.xlabel('Position')
 plt.ylabel('Velocity')
-plt.savefig('Plot_regularization1.eps', format='eps')
+plt.savefig('Figures/FiguresHIL/Reg1/Plot_regularization1.eps', format='eps')
 plt.show()
 
 
@@ -105,7 +105,7 @@ eta = tf.Variable(initial_value=1., trainable=False)
 NN_Termination, NN_Actions, NN_Options = hil.BaumWelchRegularizer2(ED, eta)
 Triple_reg2 = hil.Triple(NN_Options, NN_Actions, NN_Termination)
 
-x, u, o, b = sim.VideoHierarchicalPolicy('MountainCar-v0', 'Regularization2', Triple_reg2, zeta, mu, 200, option_space, size_input)
+x, u, o, b = sim.VideoHierarchicalPolicy('MountainCar-v0', 'Videos/VideosHIL/Reg2', Triple_reg2, zeta, mu, 200, option_space, size_input)
 
 fig = plt.figure()
 ax1 = plt.subplot(311)
@@ -128,12 +128,13 @@ cbar = fig.colorbar(plot_action, ticks=[0, 1])
 cbar.ax.set_yticklabels(['Same Option', 'Terminate'])
 plt.xlabel('Position')
 plt.ylabel('Velocity')
-plt.savefig('Plot_regularization2.eps', format='eps')
+plt.savefig('Figures/FiguresHIL/Reg2/Plot_regularization2.eps', format='eps')
 plt.show()
 
 
 
-# %%
+# %% Regularizers validation
+
 inputs = range(len(ETA))
 num_cores = multiprocessing.cpu_count()
 results = Parallel(n_jobs=num_cores, prefer="threads")(delayed(hil.ValidationBW_reward)(i, ED) for i in inputs)
@@ -145,7 +146,12 @@ for j in range(len(results)):
     
 Bestid = np.argmin(averageHIL) 
 Best_Triple = results[Bestid][0]
-x, u, o, b = sim.VideoHierarchicalPolicy('MountainCar-v0', 'HILvideo', Best_Triple, zeta, mu, max_epoch, option_space, size_input)
+
+Best_Triple.save(ED.gain_lambdas[Bestid], ED.gain_eta[Bestid])
+
+# %%
+x, u, o, b = sim.VideoHierarchicalPolicy('MountainCar-v0', 'Videos/VideosHIL/eta_{}_lambda_{}'.format(ED.gain_eta[Bestid], ED.gain_lambdas[Bestid]), 
+                                         Best_Triple, zeta, mu, max_epoch, option_space, size_input)
 
 #eta = 1000
 #lambda = 3.16
@@ -171,7 +177,7 @@ cbar = fig.colorbar(plot_action, ticks=[0, 1])
 cbar.ax.set_yticklabels(['Same Option', 'Terminate'])
 plt.xlabel('Position')
 plt.ylabel('Velocity')
-plt.savefig('Best_Triple_option_state_action_distribution.eps', format='eps')
+plt.savefig('Figures/FiguresHIL/HIL_simulation_eta_{}_lambda_{}.eps'.format(ED.gain_eta[Bestid], ED.gain_lambdas[Bestid]), format='eps')
 plt.show()
 
 

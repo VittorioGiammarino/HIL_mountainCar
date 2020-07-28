@@ -46,7 +46,7 @@ def NN_options(option_space,size_input):
     keras.layers.Softmax()
     ])
 
-    tf.keras.utils.plot_model(model, to_file='model_NN_options.png', 
+    tf.keras.utils.plot_model(model, to_file='Figures/FiguresHIL/model_NN_options.png', 
                               show_shapes=True, 
                               show_layer_names=True,
                               expand_nested=True)
@@ -60,7 +60,7 @@ def NN_actions(action_space, size_input):
     keras.layers.Softmax()
     ])
 
-    tf.keras.utils.plot_model(model, to_file='model_NN_actions.png', 
+    tf.keras.utils.plot_model(model, to_file='Figures/FiguresHIL/model_NN_actions.png', 
                               show_shapes=True, 
                               show_layer_names=True,
                               expand_nested=True)
@@ -74,7 +74,7 @@ def NN_termination(termination_space, size_input):
     keras.layers.Softmax()
     ])
 
-    tf.keras.utils.plot_model(model, to_file='model_NN_termination.png', 
+    tf.keras.utils.plot_model(model, to_file='Figures/FiguresHIL/model_NN_termination.png', 
                               show_shapes=True, 
                               show_layer_names=True,
                               expand_nested=True)
@@ -968,17 +968,18 @@ class Triple:
         self.actions_weights = NN_actions.get_weights()
         self.termination_weights = NN_termination.get_weights()
         
-    def save(self):
-        self.NN_options.save('NN_options')
-        self.NN_actions.save('NN_actions')
-        self.NN_termination.save('NN_termination')
+    def save(self, lambdas, eta):
+        self.NN_options.save('Triple_models/H_model_lambda_{}_eta_{}/NN_options'.format(lambdas,eta))
+        self.NN_actions.save('Triple_models/H_model_lambda_{}_eta_{}/NN_actions'.format(lambdas,eta))
+        self.NN_termination.save('Triple_models/H_model_lambda_{}_eta_{}/NN_termination'.format(lambdas,eta))
         
-    def load():
-        NN_options = keras.models.load_model('NN_options')
-        NN_actions = keras.models.load_model('NN_actions')
-        NN_termination = keras.models.load_model('NN_termination')
+    def load(lambdas, eta):
+        NN_options = keras.models.load_model('Triple_models/H_model_lambda_{}_eta_{}/NN_options'.format(lambdas,eta))
+        NN_actions = keras.models.load_model('Triple_models/H_model_lambda_{}_eta_{}/NN_actions'.format(lambdas,eta))
+        NN_termination = keras.models.load_model('Triple_models/H_model_lambda_{}_eta_{}/NN_termination'.format(lambdas,eta))
         
         return NN_options, NN_actions, NN_termination
+        
     
 class Experiment_design:
     def __init__(self, labels, TrainingSet, size_input, action_space, option_space, termination_space, N, zeta, mu, Triple_init, gain_lambdas,

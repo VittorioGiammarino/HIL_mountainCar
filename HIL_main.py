@@ -18,10 +18,9 @@ import HierarchicalImitationLearning as hil
 import gym
 import BehavioralCloning as bc
 import concurrent.futures
-import pickle
 
 # %% map generation 
-bc_data_dir = 'data'
+bc_data_dir = 'Expert/Data'
 TrainingSet, labels = hil.PreprocessData(bc_data_dir)
 
 TrainingSet = TrainingSet[0:4000,:]
@@ -33,9 +32,8 @@ cbar = fig.colorbar(plot_action, ticks=[0, 0.5, 1])
 cbar.ax.set_yticklabels(['Left', 'No Action', 'Right'])
 plt.xlabel('Position')
 plt.ylabel('Velocity')
-plt.savefig('Expert_state_action_distribution.eps', format='eps')
+plt.savefig('Figures/FiguresExpert/Expert_state_action_distribution.eps', format='eps')
 plt.show()
-
 
 # %% Triple parameterization
 option_space = 2
@@ -107,15 +105,22 @@ for n in range(N):
 
     print('Maximization done, Total Loss:',float(loss))#float(loss_options+loss_action+loss_termination))
 
-# %%
+# %% Save Model
+lambda_gain = lambdas.numpy()[0]
+eta_gain = eta.numpy()
+
 Triple = hil.Triple(NN_options, NN_actions, NN_termination)
-Triple.save()
+Triple.save(lambda_gain, eta_gain)
 
-# %%
+# %% Load Model
 
-NN_Options, NN_Actions, NN_Termination = hil.Triple.load()
+lambdas = tf.Variable(initial_value=1.*tf.ones((option_space,)), trainable=False)
+eta = tf.Variable(initial_value=100., trainable=False)
+lambda_gain = lambdas.numpy()[0]
+eta_gain = eta.numpy()
+
+NN_Options, NN_Actions, NN_Termination = hil.Triple.load(lambda_gain, eta_gain)
 New_Triple = hil.Triple(NN_Options, NN_Actions, NN_Termination)
-
 
 # %% Evaluation 
 #Triple = hil.Triple(NN_options, NN_actions, NN_termination)
@@ -159,12 +164,16 @@ cbar = fig.colorbar(plot_action, ticks=[0, 0.5, 1])
 cbar.ax.set_yticklabels(['Left', 'No Action', 'Right'])
 plt.xlabel('Position')
 plt.ylabel('Velocity')
-plt.savefig('HIL_option_state_action_distribution.eps', format='eps')
+plt.savefig('Figures/FiguresHIL/HIL_distribution_eta_{}_lambda_{}.eps'.format(eta_gain, lambda_gain), format='eps')
 plt.show()
 
 # %%
+env = gym.make('MountainCar-v0')
+env._max_episode_steps = 1200
+max_epoch = 1000
 
-x, u, o, b = sim.VideoHierarchicalPolicy('MountainCar-v0', 'HILvideo', New_Triple, zeta, mu, max_epoch, option_space, size_input)
+x, u, o, b = sim.VideoHierarchicalPolicy('MountainCar-v0', 'Videos/VideosHIL/eta_{}_lambda_{}'.format(eta_gain, lambda_gain), 
+                                         New_Triple, zeta, mu, max_epoch, option_space, size_input)
 
 # %%
 
@@ -189,7 +198,7 @@ cbar = fig.colorbar(plot_action, ticks=[0, 1])
 cbar.ax.set_yticklabels(['Same Option', 'Terminate'])
 plt.xlabel('Position')
 plt.ylabel('Velocity')
-plt.savefig('HIL_option_state_action_distribution.eps', format='eps')
+plt.savefig('Figures/FiguresHIL/HIL_simulation_eta_{}_lambda_{}.eps'.format(eta_gain, lambda_gain), format='eps')
 plt.show()
 
 
@@ -245,6 +254,6 @@ def animation_frame(i, x, o, u, b):
 
 
 animation = anim.FuncAnimation(fig, func = animation_frame, frames=b.shape[0], fargs=(x, o, u, b))
-animation.save('animation.mp4', writer=writer)
+animation.save('Videos/VideosHIL/eta_{}_lambda_{}/animation.mp4'.format(eta_gain, lambda_gain), writer=writer)
 
 
