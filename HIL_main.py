@@ -118,12 +118,12 @@ New_Triple = hil.Triple(NN_Options, NN_Actions, NN_Termination)
 
 
 # %% Evaluation 
-Triple = hil.Triple(NN_options, NN_actions, NN_termination)
+#Triple = hil.Triple(NN_options, NN_actions, NN_termination)
 env = gym.make('MountainCar-v0')
 env._max_episode_steps = 1200
 max_epoch = 1000
 
-trajHIL, controlHIL, optionHIL, terminationHIL, flagHIL = sim.HierarchicalPolicySim(env, Triple, zeta, mu, max_epoch, 100, option_space, size_input)
+trajHIL, controlHIL, optionHIL, terminationHIL, flagHIL = sim.HierarchicalPolicySim(env, New_Triple, zeta, mu, max_epoch, 2, option_space, size_input)
 
 positionHIL = np.empty((0))
 velocityHIL = np.empty((0))

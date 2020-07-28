@@ -105,7 +105,7 @@ eta = tf.Variable(initial_value=1., trainable=False)
 NN_Termination, NN_Actions, NN_Options = hil.BaumWelchRegularizer2(ED, eta)
 Triple_reg2 = hil.Triple(NN_Options, NN_Actions, NN_Termination)
 
-x, u, o, b = sim.VideoHierarchicalPolicy('MountainCar-v0', 'Regularization2', Triple_reg1, zeta, mu, 200, option_space, size_input)
+x, u, o, b = sim.VideoHierarchicalPolicy('MountainCar-v0', 'Regularization2', Triple_reg2, zeta, mu, 200, option_space, size_input)
 
 fig = plt.figure()
 ax1 = plt.subplot(311)
