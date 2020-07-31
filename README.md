@@ -89,6 +89,8 @@ import multiprocessing
 - Reguralizers validation (lambdas, eta)
 - Determine best Policy
 - Save Trained model
+- Evaluation 
+- Evaluation of the training on different number of samples 
 
 
 ### Important

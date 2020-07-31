@@ -65,6 +65,10 @@ max_epoch = 1000
 ED = hil.Experiment_design(labels, TrainingSet, size_input, action_space, option_space, termination_space, N, zeta, mu, 
                            Triple, LAMBDAS, ETA, env, max_epoch)
 
+lambdas = tf.Variable(initial_value=1.*tf.ones((option_space,)), trainable=False)
+eta = tf.Variable(initial_value=100., trainable=False)
+
+
 # %% Regularization 1
 
 lambdas = tf.Variable(initial_value=1.*tf.ones((option_space,)), trainable=False)
@@ -181,5 +185,26 @@ plt.savefig('Figures/FiguresHIL/HIL_simulation_eta_{}_lambda_{}.eps'.format(ED.g
 plt.show()
 
 
+# %% Evaluation with a different number of samples
+
+# lambdas = tf.Variable(initial_value=ED.gain_lambdas[Bestid]*tf.ones((option_space,)), trainable=False)
+# eta = tf.Variable(initial_value=ED.gain_eta[Bestid], trainable=False)
+nSamples = [200, 500, 1000, 2000, 3000, 4000]
+average_expert = bc.AverageExpert(TrainingSet)
+averageBW, success_percentageBW = hil.EvaluationBW(TrainingSet, labels, nSamples, ED, lambdas, eta)
+
+plt.figure()
+plt.subplot(211)
+plt.plot(nSamples, averageBW,'go--', label = 'HIL')
+plt.plot(nSamples, average_expert*np.ones((len(nSamples))),'b', label = 'Expert')
+plt.ylabel('Average steps to goal')
+plt.subplot(212)
+plt.plot(nSamples, success_percentageBW,'go--', label = 'HIL')
+plt.plot(nSamples, np.ones((len(nSamples))),'b', label='Expert')
+plt.xlabel('Number of Trajectories')
+plt.ylabel('Percentage of success')
+plt.legend(loc='lower right')
+plt.savefig('Figures/FiguresHIL/evaluationHIL_multipleTrajs.eps', format='eps')
+plt.show()
 
 

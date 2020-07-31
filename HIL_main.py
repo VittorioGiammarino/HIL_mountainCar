@@ -239,7 +239,6 @@ plt.show()
 
 #%% Animation
 
-
 def animation_frame(i, x, o, u, b):
     plot_action.set_offsets(x[0:i,:])
     plot_action.set_sizes(10*np.ones(i))
@@ -252,8 +251,13 @@ def animation_frame(i, x, o, u, b):
     plot_termination.set_array(b[0:i])
     return plot_action, plot_option, plot_termination,
 
-
 animation = anim.FuncAnimation(fig, func = animation_frame, frames=b.shape[0], fargs=(x, o, u, b))
 animation.save('Videos/VideosHIL/eta_{}_lambda_{}/animation.mp4'.format(eta_gain, lambda_gain), writer=writer)
+
+
+
+
+
+
 
 
