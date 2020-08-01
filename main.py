@@ -46,7 +46,7 @@ NN_options = hil.NN_options(option_space, size_input)
 NN_actions = hil.NN_actions(action_space, size_input)
 NN_termination = hil.NN_termination(termination_space, size_input)
 
-N=5 #Iterations
+N=4 #Iterations
 zeta = 0.1 #Failure factor
 mu = np.ones(option_space)*np.divide(1,option_space) #initial option probability distribution
 
@@ -193,6 +193,7 @@ nSamples = [200, 500, 1000, 2000, 3000, 4000]
 average_expert = bc.AverageExpert(TrainingSet)
 averageBW, success_percentageBW = hil.EvaluationBW(TrainingSet, labels, nSamples, ED, lambdas, eta)
 
+# %%
 plt.figure()
 plt.subplot(211)
 plt.plot(nSamples, averageBW,'go--', label = 'HIL')
@@ -201,7 +202,7 @@ plt.ylabel('Average steps to goal')
 plt.subplot(212)
 plt.plot(nSamples, success_percentageBW,'go--', label = 'HIL')
 plt.plot(nSamples, np.ones((len(nSamples))),'b', label='Expert')
-plt.xlabel('Number of Trajectories')
+plt.xlabel('Number of Samples')
 plt.ylabel('Percentage of success')
 plt.legend(loc='lower right')
 plt.savefig('Figures/FiguresHIL/evaluationHIL_multipleTrajs.eps', format='eps')
