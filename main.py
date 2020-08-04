@@ -23,8 +23,8 @@ import multiprocessing
 bc_data_dir = 'data'
 TrainingSet, labels = hil.PreprocessData(bc_data_dir)
 
-TrainingSet = TrainingSet[0:500,:]
-labels = labels[0:500]
+TrainingSet = TrainingSet[0:2000,:]
+labels = labels[0:2000]
 # %% Expert Plot
 fig = plt.figure()
 plot_action = plt.scatter(TrainingSet[:,0], TrainingSet[:,1], c=labels, marker='x', cmap='winter');
@@ -46,12 +46,12 @@ NN_options = hil.NN_options(option_space, size_input)
 NN_actions = hil.NN_actions(action_space, size_input)
 NN_termination = hil.NN_termination(termination_space, size_input)
 
-N=2 #Iterations
+N=10 #Iterations
 zeta = 0.1 #Failure factor
 mu = np.ones(option_space)*np.divide(1,option_space) #initial option probability distribution
 
-gain_lambdas = np.logspace(-2, 3, 3, dtype = 'float32')
-gain_eta = np.logspace(-2, 3, 3, dtype = 'float32')
+gain_lambdas = np.logspace(-2, 3, 7, dtype = 'float32')
+gain_eta = np.logspace(-2, 3, 7, dtype = 'float32')
 ETA, LAMBDAS = np.meshgrid(gain_eta, gain_lambdas)
 LAMBDAS = LAMBDAS.reshape(len(gain_lambdas)*len(gain_eta),)
 ETA = ETA.reshape(len(gain_lambdas)*len(gain_eta),)
@@ -171,7 +171,7 @@ cbar = fig.colorbar(plot_action, ticks=[0, 1])
 cbar.ax.set_yticklabels(['Same Option', 'Terminate'])
 plt.xlabel('Position')
 plt.ylabel('Velocity')
-plt.savefig('Best_Triple_option_state_action_distribution.eps', format='eps')
+plt.savefig('Best_Triple_option_state_action_distribution_Final.eps', format='eps')
 plt.show()
 
 
