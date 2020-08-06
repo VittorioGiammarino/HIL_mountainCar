@@ -1011,37 +1011,37 @@ def HMM_order_estimation(d, EV):
     TrainingSet_Termination = TrainingSetTermination(EV.TrainingSet, EV.option_space, EV.size_input)
     TrainingSet_Actions, labels_reshaped = TrainingAndLabelsReshaped(EV.option_space,T, EV.TrainingSet, EV.labels, EV.size_input)
     
-    for n in range(10):
-        print('iter', n+1, '/', 2)
+    for n in range(EV.N):
+        print('iter', n+1, '/', EV.N)
         
-        # alpha = Alpha(EV.TrainingSet, EV.labels, EV.option_space, EV.termination_space, EV.mu, 
-        #               EV.zeta, NN_Options, NN_Actions, NN_Termination)
-        # beta = Beta(EV.TrainingSet, EV.labels, EV.option_space, EV.termination_space, EV.zeta, 
-        #             NN_Options, NN_Actions, NN_Termination)
-        # gamma = Gamma(EV.TrainingSet, EV.option_space, EV.termination_space, alpha, beta)
-        # gamma_tilde = GammaTilde(EV.TrainingSet, EV.labels, beta, alpha, 
-        #                          NN_Options, NN_Actions, NN_Termination, EV.zeta, EV.option_space, EV.termination_space)
+        alpha = Alpha(EV.TrainingSet, EV.labels, EV.option_space, EV.termination_space, EV.mu, 
+                      EV.zeta, NN_Options, NN_Actions, NN_Termination)
+        beta = Beta(EV.TrainingSet, EV.labels, EV.option_space, EV.termination_space, EV.zeta, 
+                    NN_Options, NN_Actions, NN_Termination)
+        gamma = Gamma(EV.TrainingSet, EV.option_space, EV.termination_space, alpha, beta)
+        gamma_tilde = GammaTilde(EV.TrainingSet, EV.labels, beta, alpha, 
+                                  NN_Options, NN_Actions, NN_Termination, EV.zeta, EV.option_space, EV.termination_space)
     
         # MultiThreading Running
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            f1 = executor.submit(Alpha, EV.TrainingSet, EV.labels, EV.option_space, EV.termination_space, EV.mu, 
-                                 EV.zeta, NN_Options, NN_Actions, NN_Termination)
-            f2 = executor.submit(Beta, EV.TrainingSet, EV.labels, EV.option_space, EV.termination_space, EV.zeta, 
-                                 NN_Options, NN_Actions, NN_Termination)  
-            alpha = f1.result()
-            beta = f2.result()
+        # with concurrent.futures.ThreadPoolExecutor() as executor:
+        #     f1 = executor.submit(Alpha, EV.TrainingSet, EV.labels, EV.option_space, EV.termination_space, EV.mu, 
+        #                          EV.zeta, NN_Options, NN_Actions, NN_Termination)
+        #     f2 = executor.submit(Beta, EV.TrainingSet, EV.labels, EV.option_space, EV.termination_space, EV.zeta, 
+        #                          NN_Options, NN_Actions, NN_Termination)  
+        #     alpha = f1.result()
+        #     beta = f2.result()
     
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            f3 = executor.submit(Gamma, EV.TrainingSet, EV.option_space, EV.termination_space, alpha, beta)
-            f4 = executor.submit(GammaTilde, EV.TrainingSet, EV.labels, beta, alpha, 
-                                 NN_Options, NN_Actions, NN_Termination, EV.zeta, EV.option_space, EV.termination_space)  
-            gamma = f3.result()
-            gamma_tilde = f4.result()
+        # with concurrent.futures.ThreadPoolExecutor() as executor:
+        #     f3 = executor.submit(Gamma, EV.TrainingSet, EV.option_space, EV.termination_space, alpha, beta)
+        #     f4 = executor.submit(GammaTilde, EV.TrainingSet, EV.labels, beta, alpha, 
+        #                          NN_Options, NN_Actions, NN_Termination, EV.zeta, EV.option_space, EV.termination_space)  
+        #     gamma = f3.result()
+        #     gamma_tilde = f4.result()
         
         print('Expectation done')
         print('Starting maximization step')
         optimizer = keras.optimizers.Adamax(learning_rate=1e-3)
-        epochs = 200 #number of iterations for the maximization step
+        epochs = 50 #number of iterations for the maximization step
     
         gamma_tilde_reshaped = GammaTildeReshape(gamma_tilde, EV.option_space)
         gamma_actions_false, gamma_actions_true = GammaReshapeActions(T, EV.option_space, EV.action_space, gamma, labels_reshaped)

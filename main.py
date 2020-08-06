@@ -18,6 +18,7 @@ import concurrent.futures
 import gym
 from joblib import Parallel, delayed
 import multiprocessing
+import pickle
 
 # %% Expert Data
 bc_data_dir = 'Expert/Data'
@@ -45,11 +46,11 @@ NN_options = hil.NN_options(option_space, size_input)
 NN_actions = hil.NN_actions(action_space, size_input)
 NN_termination = hil.NN_termination(termination_space, size_input)
 
-N=4 #Iterations
+N=10 #Iterations
 zeta = 0.1 #Failure factor
 mu = np.ones(option_space)*np.divide(1,option_space) #initial option probability distribution
 
-gain_lambdas = np.logspace(-1, 2, 3, dtype = 'float32')
+gain_lambdas = np.logspace(0, 1.5, 4, dtype = 'float32')
 gain_eta = np.logspace(1, 3, 3, dtype = 'float32')
 ETA, LAMBDAS = np.meshgrid(gain_eta, gain_lambdas)
 LAMBDAS = LAMBDAS.reshape(len(gain_lambdas)*len(gain_eta),)
@@ -69,16 +70,29 @@ eta = tf.Variable(initial_value=100., trainable=False)
 
 # %% HMM order estimation
 
-Model_orders = [1, 2, 3, 4, 5]
-Likelihood = np.empty(0) 
-for d in Model_orders:
-    Likelihood = np.append(Likelihood, -hil.HMM_order_estimation(d, ED))
+# Model_orders = [1, 2, 3, 4, 5, 6, 7]
+# Likelihood = np.empty(0) 
+# for d in Model_orders:
+#     Likelihood = np.append(Likelihood, -hil.HMM_order_estimation(d, ED))
     
-# %%
+# with open('Variables_saved/likelihood.pickle', 'wb') as f:
+#     pickle.dump([Likelihood, Model_orders], f)
+
+# with open('Variables_saved/likelihood.npy', 'wb') as f:
+#     np.save(f,[Likelihood, Model_orders])
+    
+# %% Plot Figure
+	
+# with open('Variables_saved/likelihood.pickle', 'rb') as f:
+#     Likelihood, Model_orders = pickle.load(f)
+
+with open('Variables_saved/likelihood.npy', 'rb') as f:
+    Likelihood, Model_orders = np.load(f)
+
 fig = plt.figure()
 plot_action = plt.plot(Model_orders, Likelihood,'o--');
 plt.xlabel('Model Order')
-plt.ylabel('Likelihood')
+plt.ylabel('Lower bound for the Likelihood')
 plt.savefig('Figures/FiguresHIL/Likelihood_over_order.eps', format='eps')
 plt.show()
 
@@ -147,7 +161,6 @@ plt.xlabel('Position')
 plt.ylabel('Velocity')
 plt.savefig('Figures/FiguresHIL/Reg2/Plot_regularization2.eps', format='eps')
 plt.show()
-
 
 
 # %% Regularizers validation
