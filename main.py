@@ -22,9 +22,9 @@ import multiprocessing
 # %% Expert Data
 bc_data_dir = 'Expert/Data'
 TrainingSet, labels = hil.PreprocessData(bc_data_dir)
+TrainingSet = TrainingSet[0:1000,:]
+labels = labels[0:1000]
 
-TrainingSet = TrainingSet[0:4000,:]
-labels = labels[0:4000]
 # %% Expert Plot
 fig = plt.figure()
 plot_action = plt.scatter(TrainingSet[:,0], TrainingSet[:,1], c=labels, marker='x', cmap='winter');
@@ -34,7 +34,6 @@ plt.xlabel('Position')
 plt.ylabel('Velocity')
 plt.savefig('Figures/FiguresExpert/Expert_state_action_distribution.eps', format='eps')
 plt.show()
-
 
 # %% Initialization
 option_space = 2
@@ -68,6 +67,20 @@ ED = hil.Experiment_design(labels, TrainingSet, size_input, action_space, option
 lambdas = tf.Variable(initial_value=1.*tf.ones((option_space,)), trainable=False)
 eta = tf.Variable(initial_value=100., trainable=False)
 
+# %% HMM order estimation
+
+Model_orders = [1, 2, 3, 4, 5]
+Likelihood = np.empty(0) 
+for d in Model_orders:
+    Likelihood = np.append(Likelihood, -hil.HMM_order_estimation(d, ED))
+    
+# %%
+fig = plt.figure()
+plot_action = plt.plot(Model_orders, Likelihood,'o--');
+plt.xlabel('Model Order')
+plt.ylabel('Likelihood')
+plt.savefig('Figures/FiguresHIL/Likelihood_over_order.eps', format='eps')
+plt.show()
 
 # %% Regularization 1
 
