@@ -166,8 +166,11 @@ plt.show()
 # %% Regularizers validation
 
 inputs = range(len(ETA))
-num_cores = multiprocessing.cpu_count()
-results = Parallel(n_jobs=num_cores, prefer="threads")(delayed(hil.ValidationBW_reward)(i, ED) for i in inputs)
+# num_cores = multiprocessing.cpu_count()
+# results = Parallel(n_jobs=num_cores, prefer="threads")(delayed(hil.ValidationBW_reward)(i, ED) for i in inputs)
+results = [[None]*1 for _ in inputs]
+for i in inputs:
+    results[i] = hil.ValidationBW_reward(i,ED)
 
 # %%
 averageHIL = np.empty((0))
@@ -183,8 +186,8 @@ Best_Triple.save(ED.gain_lambdas[Bestid], ED.gain_eta[Bestid])
 x, u, o, b = sim.VideoHierarchicalPolicy('MountainCar-v0', 'Videos/VideosHIL/eta_{}_lambda_{}'.format(ED.gain_eta[Bestid], ED.gain_lambdas[Bestid]), 
                                          Best_Triple, zeta, mu, max_epoch, option_space, size_input)
 
-#eta = 1000
-#lambda = 3.16
+#eta = 100
+#lambda = 1
 
 fig = plt.figure()
 ax1 = plt.subplot(311)

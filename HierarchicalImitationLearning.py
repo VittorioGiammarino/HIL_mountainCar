@@ -39,6 +39,26 @@ def PreprocessData(bc_data_dir):
     return states, actions
 
 
+def BatchTrainingSet(TrainingSet,labels):
+    trajs = 0
+    for i in range(1,len(TrainingSet)):
+        if TrainingSet[i,1]==0 and (TrainingSet[i,0]<-0.4 and TrainingSet[i,0]>-0.6) and TrainingSet[i-1,1]!=0:
+            trajs +=1
+    
+    batches_data = [[None]*1 for _ in range(trajs)]
+    batches_labels = [[None]*1 for _ in range(trajs)]
+    j=0
+    k=0
+    for i in range(1,len(TrainingSet)):
+        if TrainingSet[i,1]==0 and (TrainingSet[i,0]<-0.4 and TrainingSet[i,0]>-0.6) and TrainingSet[i-1,1]!=0:
+            batches_data[k][:]=TrainingSet[j:i,:]
+            batches_labels[k][:]=labels[j:i]
+            j=i
+            k+=1
+    average = j/k
+    
+    return batches_data, batches_labels, average
+
 def NN_options(option_space,size_input):
     model = keras.Sequential([
     keras.layers.Dense(300, activation='relu', input_shape=(size_input,)),
